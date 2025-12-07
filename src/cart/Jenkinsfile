@@ -39,31 +39,13 @@ pipeline {
             steps {
                 echo 'Running Integration tests...'
                 sh """
-                    # Start DynamoDB Local container
-                    docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
-                    
-                    # Wait for DynamoDB to be ready
-                    echo 'Waiting for DynamoDB to start...'
-                    sleep 10
-                    
-                    # Run tests with DynamoDB endpoint as system property
-                    mvn -f src/cart/pom.xml test \
-                        -Dretail.cart.persistence.provider=dynamodb \
-                        -Dretail.cart.persistence.dynamodb.endpoint=http://localhost:8000 \
-                        -Dretail.cart.persistence.dynamodb.createTable=true
+                    mvn -f src/cart/pom.xml test
                 """
             }
             post {
                 always {
                     // Publish test results
                     junit '**/target/surefire-reports/*.xml'
-                    
-                    // Cleanup DynamoDB container
-                    sh '''
-                        docker stop dynamodb-local || true
-                        docker rm dynamodb-local || true
-                        docker rmi amazon/dynamodb-local || true
-                    '''
                 }
             }
         }
