@@ -1,0 +1,13 @@
+catalog
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+test/
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+ATTRIBUTION.md
