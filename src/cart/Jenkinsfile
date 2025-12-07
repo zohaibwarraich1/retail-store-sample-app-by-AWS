@@ -35,7 +35,6 @@ pipeline {
             }
         }
         
-        
         stage('Integration Test') {
             steps {
                 echo 'Running Integration tests...'
@@ -47,11 +46,11 @@ pipeline {
                     echo 'Waiting for DynamoDB to start...'
                     sleep 10
                     
-                    # Set environment variable for tests
-                    export RETAIL_CART_PERSISTENCE_DYNAMODB_ENDPOINT=http://localhost:8000
-                    
-                    # Run tests
-                    mvn -f src/cart/pom.xml test
+                    # Run tests with DynamoDB endpoint as system property
+                    mvn -f src/cart/pom.xml test \
+                        -Dretail.cart.persistence.provider=dynamodb \
+                        -Dretail.cart.persistence.dynamodb.endpoint=http://localhost:8000 \
+                        -Dretail.cart.persistence.dynamodb.createTable=true
                 """
             }
             post {
@@ -63,6 +62,7 @@ pipeline {
                     sh '''
                         docker stop dynamodb-local || true
                         docker rm dynamodb-local || true
+                        docker rmi amazon/dynamodb-local || true
                     '''
                 }
             }
