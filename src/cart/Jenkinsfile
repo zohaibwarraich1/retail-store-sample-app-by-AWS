@@ -35,16 +35,35 @@ pipeline {
             }
         }
         
-        stage('Test') {
+        
+        stage('Integration Test') {
             steps {
-                echo 'Running tests...'
+                echo 'Running Integration tests...'
                 sh """
+                    # Start DynamoDB Local container
+                    docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
+                    
+                    # Wait for DynamoDB to be ready
+                    echo 'Waiting for DynamoDB to start...'
+                    sleep 10
+                    
+                    # Set environment variable for tests
+                    export RETAIL_CART_PERSISTENCE_DYNAMODB_ENDPOINT=http://localhost:8000
+                    
+                    # Run tests
                     mvn -f src/cart/pom.xml test
                 """
             }
             post {
                 always {
+                    // Publish test results
                     junit '**/target/surefire-reports/*.xml'
+                    
+                    // Cleanup DynamoDB container
+                    sh '''
+                        docker stop dynamodb-local || true
+                        docker rm dynamodb-local || true
+                    '''
                 }
             }
         }
