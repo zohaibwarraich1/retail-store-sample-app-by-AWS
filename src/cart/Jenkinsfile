@@ -50,44 +50,52 @@ pipeline {
             }
         }
         
-        stage('OWASP Dependency Check') {
-            steps {
-                echo 'Running OWASP Dependency Check...'
-                dependencyCheck additionalArguments: '''
-                    --scan src/cart
-                    --format HTML
-                    --format JSON
-                    --format XML
-                    --failOnCVSS 7
-                ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
-            }
-            post {
-                always {
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+        stage('Security & Quality Analysis') {
+            parallel {
+                stage('OWASP Dependency Check') {
+                    steps {
+                        echo 'Running OWASP Dependency Check...'
+                        dependencyCheck additionalArguments: '''
+                            --scan src/cart
+                            --format HTML
+                            --format JSON
+                            --format XML
+                            --failOnCVSS 7
+                        ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
+                    }
+                    post {
+                        always {
+                            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                        }
+                    }
                 }
-            }
-        }
-        
-        stage('SonarQube Analysis') {
-            steps {
-                echo 'Running SonarQube analysis...'
-                withSonarQubeEnv('sonarqube-server') {
-                    sh """
-                        ${SONAR_SCANNER}/bin/sonar-scanner \
-                            -Dsonar.projectKey=Retail-Store-Cart-Service \
-                            -Dsonar.sources=src/cart/src/main/java \
-                            -Dsonar.java.binaries=src/cart/target/classes \
-                            -Dsonar.sourceEncoding=UTF-8
-                    """
-                }
-            }
-        }
-        
-        stage('Quality Gate') {
-            steps {
-                echo 'Waiting for Quality Gate...'
-                timeout(time: 1, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true, credentialsId: 'sonarqube-token'
+                
+                stage('Code Quality') {
+                    stages {
+                        stage('SonarQube Analysis') {
+                            steps {
+                                echo 'Running SonarQube analysis...'
+                                withSonarQubeEnv('sonarqube-server') {
+                                    sh """
+                                        ${SONAR_SCANNER}/bin/sonar-scanner \
+                                            -Dsonar.projectKey=Retail-Store-Cart-Service \
+                                            -Dsonar.sources=src/cart/src/main/java \
+                                            -Dsonar.java.binaries=src/cart/target/classes \
+                                            -Dsonar.sourceEncoding=UTF-8
+                                    """
+                                }
+                            }
+                        }
+                        
+                        stage('Quality Gate') {
+                            steps {
+                                echo 'Waiting for Quality Gate...'
+                                timeout(time: 10, unit: 'MINUTES') {
+                                    waitForQualityGate abortPipeline: true, credentialsId: 'sonarqube-token'
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
