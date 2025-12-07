@@ -10,11 +10,9 @@ pipeline {
     
     options {
         buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '2')
-        rateLimitBuilds(
-            categories: ['default'],
-            limit: 1,
-            durationName: 'minute',
-            userBoost: false
+        throttle(
+            maxConcurrentPerNode: 1,
+            maxConcurrentTotal: 1
         )
     }
     
