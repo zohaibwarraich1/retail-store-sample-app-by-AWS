@@ -1,11 +1,147 @@
 pipeline {
-    agent any
+    agent {
+        label 'agent-ec2'
+    }
+    
+    tools {
+        maven 'maven-tool'
+        dependencyCheck 'DC'
+    }
+    
+    options {
+        buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '2')
+        rateLimitBuilds([count: 1, durationName: 'minute', userBoost: false])
+    }
+    
+    environment {
+        SONAR_SCANNER = tool 'sonarqube-scanner-tool'
+        OWASP_SCANNER = tool 'DC'
+    }
     
     stages {
-        stage('Hello') {
+        stage('Checkout') {
             steps {
-                echo 'Hello World from Cart Service!'
+                echo 'Checking out source code...'
+                checkout scm
             }
+        }
+        
+        stage('Build') {
+            steps {
+                echo 'Building Cart Service...'
+                sh """
+                    mvn -f src/cart/pom.xml clean package -DskipTests
+                """
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
+                sh """
+                    mvn -f src/cart/pom.xml test
+                """
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+        
+        stage('OWASP Dependency Check') {
+            steps {
+                echo 'Running OWASP Dependency Check...'
+                dependencyCheck additionalArguments: '''
+                    --scan src/cart
+                    --format HTML
+                    --format JSON
+                    --failOnCVSS 7
+                    --suppression owasp-suppressions.xml
+                ''', odcInstallation: 'DC'
+            }
+            post {
+                always {
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                withSonarQubeEnv('sonarqube-server') {
+                    sh """
+                        ${SONAR_SCANNER}/bin/sonar-scanner \
+                            -Dsonar.projectKey=Retail-Store-Cart-Service \
+                            -Dsonar.sources=src/cart/src/main/java \
+                            -Dsonar.java.binaries=src/cart/target/classes \
+                            -Dsonar.sourceEncoding=UTF-8
+                    """
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                echo 'Waiting for Quality Gate...'
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true, credentialsId: 'sonarqube-token'
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker image...'
+                sh """
+                    docker build -f src/cart/Dockerfile -t zohaibwarraich/retail-store-cart-service:${BUILD_NUMBER} .
+                """
+            }
+        }
+        
+        stage('Trivy Image Scan') {
+            steps {
+                echo 'Scanning Docker image with Trivy...'
+                sh """
+                    trivy image \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        --no-progress \
+                        --format table \
+                        --output trivy-report-cart-service.json \
+                        zohaibwarraich/retail-store-cart-service:${BUILD_NUMBER}
+                """
+            }
+        }
+        
+        // stage('Push to DockerHub') {
+        //     steps {
+        //         echo 'Pushing image to DockerHub...'
+        //         script {
+        //             docker.withRegistry('https://registry.hub.docker.com', "${DOCKER_CREDENTIALS_ID}") {
+        //                 dockerImage.push("${BUILD_NUMBER}")
+        //                 dockerImage.push("latest")
+        //             }
+        //         }
+        //     }
+        // }
+    }
+    
+    post {
+        always {
+            echo 'Cleaning up...'
+            sh """
+                docker rmi zohaibwarraich/retail-store-cart-service:${BUILD_NUMBER} || true
+            """
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 }
+
