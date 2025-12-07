@@ -35,11 +35,12 @@ pipeline {
             }
         }
         
-        stage('Integration Test') {
+        stage('Unit Tests') {
             steps {
-                echo 'Running Integration tests...'
+                echo 'Running unit tests...'
                 sh """
-                    mvn -f src/cart/pom.xml test
+                    # Skip integration tests because it requires DynamoDB container
+                    mvn -f src/cart/pom.xml test -DexcludedGroups=integration
                 """
             }
             post {
