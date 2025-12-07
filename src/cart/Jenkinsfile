@@ -10,10 +10,6 @@ pipeline {
     
     options {
         buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '2')
-        throttle(
-            maxConcurrentPerNode: 1,
-            maxConcurrentTotal: 1
-        )
     }
     
     environment {
