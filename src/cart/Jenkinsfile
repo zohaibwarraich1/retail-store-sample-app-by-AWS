@@ -5,7 +5,7 @@ pipeline {
     
     tools {
         maven 'maven-tool'
-        dependencyCheck 'DC'
+        'dependency-check' 'DC'
         jdk 'jdk-25-tool'
     }
     
