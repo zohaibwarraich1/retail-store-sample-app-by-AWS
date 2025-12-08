@@ -34,6 +34,7 @@ pipeline {
                         npm run build
                     """
                 }
+            }
         }
         
         stage('Unit Tests') {
@@ -169,7 +170,6 @@ pipeline {
         failure {
             echo 'Pipeline failed!'
             slackSend channel: "retail-store-sample-aws", message: "Build Failed: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER} \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}"
-            }
         }
     }
 }
