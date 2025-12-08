@@ -41,14 +41,19 @@ pipeline {
             steps {
                 echo 'Running unit tests...'
                 dir('src/catalog') {
-                    sh """
-                        go test ./...
-                    """ 
+                    sh '''
+                        # Install go-junit-report if not already installed
+                        go install github.com/jstemmer/go-junit-report/v2@latest
+                        
+                        # Run tests and convert to JUnit XML
+                        go test -v ./... 2>&1 | ~/go/bin/go-junit-report -set-exit-code > test-report.xml
+                    ''' 
                 }
             }
             post {
                 always {
-                    echo 'Go test results logged in console'
+                    // Publish JUnit test results
+                    junit 'src/catalog/test-report.xml'
                 }
             }
         }
