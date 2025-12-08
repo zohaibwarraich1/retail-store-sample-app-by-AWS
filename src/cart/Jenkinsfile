@@ -19,6 +19,9 @@ pipeline {
     
     stages {
         stage('Checkout') {
+            when {
+                changeset "src/cart/**"
+            }
             steps {
                 echo 'Checking out source code...'
                 slackSend channel: "retail-store-sample-aws", message: "Build Started: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER}"
