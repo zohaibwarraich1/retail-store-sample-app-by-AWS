@@ -162,11 +162,11 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
-            slackSend channel: "retail-store-sample-aws", message: "Build Success: ${env.JOB_NAME} \nBuild Number:${env.BUILD_NUMBER} \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}"
+            slackSend channel: "retail-store-sample-aws", message: "Build Success: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER} \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}"
         }
         failure {
             echo 'Pipeline failed!'
-            slackSend channel: "retail-store-sample-aws", message: "Build Failed: ${env.JOB_NAME} \nBuild Number:${env.BUILD_NUMBER} \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}"
+            slackSend channel: "retail-store-sample-aws", message: "Build Failed: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER} \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}"
         }
     }
 }
