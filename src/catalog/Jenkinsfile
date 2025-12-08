@@ -17,146 +17,150 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
+        stage('Catalog Service Pipeline') {
             when {
                 changeset "src/catalog/**"
             }
-            steps {
-                echo 'Checking out source code...'
-                slackSend channel: "retail-store-sample-aws", message: "Build Started: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER}"
-                checkout scm
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                echo 'Building Catalog Service...'
-                dir('src/catalog') {
-                    sh """
-                        go mod download
-                        go build -o app
-                    """
-                }
-            }
-        }
-        
-        stage('Unit Tests') {
-            steps {
-                echo 'Running unit tests...'
-                dir('src/catalog') {
-                    sh '''
-                        # Install go-junit-report if not already installed
-                        go install github.com/jstemmer/go-junit-report/v2@latest
-                        
-                        # Run tests and convert to JUnit XML
-                        go test -v ./... 2>&1 | ~/go/bin/go-junit-report -set-exit-code > test-report.xml
-                    ''' 
-                }
-            }
-            post {
-                always {
-                    // Publish JUnit test results
-                    junit 'src/catalog/test-report.xml'
-                }
-            }
-        }
-        
-        stage('Security & Quality Analysis') {
-            parallel {
-                stage('OWASP Dependency Check') {
+            stages {
+                stage('Checkout') {
                     steps {
-                        echo 'Running OWASP Dependency Check...'
-                        dependencyCheck additionalArguments: '''
-                            --scan src/catalog
-                            --format HTML
-                            --format JSON
-                            --format XML
-                            --failOnCVSS 7
-                        ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
+                        echo 'Checking out source code...'
+                        slackSend channel: "retail-store-sample-aws", message: "Build Started: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER}"
+                        checkout scm
                     }
-                    post {
-                        always {
-                            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+                
+                stage('Build') {
+                    steps {
+                        echo 'Building Catalog Service...'
+                        dir('src/catalog') {
+                            sh """
+                                go mod download
+                                go build -o app
+                            """
                         }
                     }
                 }
                 
-                stage('Code Quality') {
-                    stages {
-                        stage('SonarQube Analysis') {
+                stage('Unit Tests') {
+                    steps {
+                        echo 'Running unit tests...'
+                        dir('src/catalog') {
+                            sh '''
+                                # Install go-junit-report if not already installed
+                                go install github.com/jstemmer/go-junit-report/v2@latest
+                                
+                                # Run tests and convert to JUnit XML
+                                go test -v ./... 2>&1 | ~/go/bin/go-junit-report -set-exit-code > test-report.xml
+                            ''' 
+                        }
+                    }
+                    post {
+                        always {
+                            // Publish JUnit test results
+                            junit 'src/catalog/test-report.xml'
+                        }
+                    }
+                }
+                
+                stage('Security & Quality Analysis') {
+                    parallel {
+                        stage('OWASP Dependency Check') {
                             steps {
-                                echo 'Running SonarQube analysis...'
-                                withSonarQubeEnv('sonarqube-server') {
-                                    sh """
-                                        ${SONAR_SCANNER}/bin/sonar-scanner \
-                                            -Dsonar.projectKey=Retail-Store-Catalog-Service \
-                                            -Dsonar.sources=src/catalog \
-                                            -Dsonar.exclusions=**/vendor/** \
-                                            -Dsonar.sourceEncoding=UTF-8
-                                    """
+                                echo 'Running OWASP Dependency Check...'
+                                dependencyCheck additionalArguments: '''
+                                    --scan src/catalog
+                                    --format HTML
+                                    --format JSON
+                                    --format XML
+                                    --failOnCVSS 7
+                                ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
+                            }
+                            post {
+                                always {
+                                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
                                 }
                             }
                         }
                         
-                        stage('Quality Gate') {
-                            steps {
-                                echo 'Waiting for Quality Gate...'
-                                timeout(time: 10, unit: 'MINUTES') {
-                                    waitForQualityGate abortPipeline: true
+                        stage('Code Quality') {
+                            stages {
+                                stage('SonarQube Analysis') {
+                                    steps {
+                                        echo 'Running SonarQube analysis...'
+                                        withSonarQubeEnv('sonarqube-server') {
+                                            sh """
+                                                ${SONAR_SCANNER}/bin/sonar-scanner \
+                                                    -Dsonar.projectKey=Retail-Store-Catalog-Service \
+                                                    -Dsonar.sources=src/catalog \
+                                                    -Dsonar.exclusions=**/vendor/** \
+                                                    -Dsonar.sourceEncoding=UTF-8
+                                            """
+                                        }
+                                    }
+                                }
+                                
+                                stage('Quality Gate') {
+                                    steps {
+                                        echo 'Waiting for Quality Gate...'
+                                        timeout(time: 10, unit: 'MINUTES') {
+                                            waitForQualityGate abortPipeline: true
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                echo 'Building Docker image...'
-                sh """
-                    docker build -f src/catalog/Dockerfile -t zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER} .
-                """
-            }
-        }
-        
-        stage('Trivy Image Scan') {
-            steps {
-                echo 'Scanning Docker image with Trivy...'
-                sh """
-                    trivy image \
-                        --severity HIGH,CRITICAL \
-                        --exit-code 0 \
-                        --no-progress \
-                        --format template \
-                        --template '@/usr/local/share/trivy/templates/html.tpl' \
-                        --output trivy-report.html \
-                        zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER}
-                """
-            }
-            post {
-                always {
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '.',
-                        reportFiles: 'trivy-report.html',
-                        reportName: 'Trivy Security Scan Report',
-                        reportTitles: 'Trivy Vulnerability Report'
-                    ])
+                
+                stage('Build Docker Image') {
+                    steps {
+                        echo 'Building Docker image...'
+                        sh """
+                            docker build -f src/catalog/Dockerfile -t zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER} .
+                        """
+                    }
                 }
-            }
-        }
-        
-        stage('Push to DockerHub') {
-            steps {
-                echo 'Pushing image to DockerHub...'
-                withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh """
-                        echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-                        docker push zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER}
-                    """
+                
+                stage('Trivy Image Scan') {
+                    steps {
+                        echo 'Scanning Docker image with Trivy...'
+                        sh """
+                            trivy image \
+                                --severity HIGH,CRITICAL \
+                                --exit-code 0 \
+                                --no-progress \
+                                --format template \
+                                --template '@/usr/local/share/trivy/templates/html.tpl' \
+                                --output trivy-report.html \
+                                zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER}
+                        """
+                    }
+                    post {
+                        always {
+                            publishHTML([
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: '.',
+                                reportFiles: 'trivy-report.html',
+                                reportName: 'Trivy Security Scan Report',
+                                reportTitles: 'Trivy Vulnerability Report'
+                            ])
+                        }
+                    }
+                }
+                
+                stage('Push to DockerHub') {
+                    steps {
+                        echo 'Pushing image to DockerHub...'
+                        withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                            sh """
+                                echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
+                                docker push zohaibwarraich/retail-store-catalog-service:${BUILD_NUMBER}
+                            """
+                        }
+                    }
                 }
             }
         }
