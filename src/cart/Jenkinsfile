@@ -28,7 +28,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Cart Service...'
-                slackSend channel: '#retail-store-sample-aws', message: 'Build Started: ${env.JOB_NAME} ${env.BUILD_NUMBER}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
+                slackSend channel: 'retail-store-sample-aws', message: 'Build Started: ${env.JOB_NAME} ${env.BUILD_NUMBER}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
                 sh """
                     mvn -f src/cart/pom.xml clean package -DskipTests
                 """
@@ -162,11 +162,11 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
-            slackSend channel: '#retail-store-sample-aws', message: 'Build Success: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
+            slackSend channel: 'retail-store-sample-aws', message: 'Build Success: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
         }
         failure {
             echo 'Pipeline failed!'
-            slackSend channel: '#retail-store-sample-aws', message: 'Build Failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
+            slackSend channel: 'retail-store-sample-aws', message: 'Build Failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
         }
     }
 }
