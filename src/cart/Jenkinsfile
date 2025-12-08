@@ -143,10 +143,10 @@ pipeline {
             steps {
                 echo 'Pushing image to DockerHub...'
                 withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh '''
-                        // echo $PASSWORD | docker login -u $USERNAME --password-stdin
+                    sh """
+                        echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
                         docker push zohaibwarraich/retail-store-cart-service:${BUILD_NUMBER}
-                    '''
+                    """
                 }
             }
         }
