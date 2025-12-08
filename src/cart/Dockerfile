@@ -13,7 +13,7 @@ COPY src/cart ./src/cart
 RUN mvn -f src/cart/pom.xml clean package -DskipTests
 
 # Runtime stage
-FROM gcr.io/distroless/java21-debian12
+FROM gcr.io/distroless/java21-debian12:latest
 WORKDIR /app
 
 # Copy the built artifact from the build stage
