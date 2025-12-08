@@ -28,6 +28,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Cart Service...'
+                slackSend channel: '#retail-store-sample-aws', message: 'Build Started: ${env.JOB_NAME} ${env.BUILD_NUMBER}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
                 sh """
                     mvn -f src/cart/pom.xml clean package -DskipTests
                 """
@@ -52,23 +53,23 @@ pipeline {
         
         stage('Security & Quality Analysis') {
             parallel {
-                // stage('OWASP Dependency Check') {
-                //     steps {
-                //         echo 'Running OWASP Dependency Check...'
-                //         dependencyCheck additionalArguments: '''
-                //             --scan src/cart
-                //             --format HTML
-                //             --format JSON
-                //             --format XML
-                //             --failOnCVSS 7
-                //         ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
-                //     }
-                //     post {
-                //         always {
-                //             dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                //         }
-                //     }
-                // }
+                stage('OWASP Dependency Check') {
+                    steps {
+                        echo 'Running OWASP Dependency Check...'
+                        dependencyCheck additionalArguments: '''
+                            --scan src/cart
+                            --format HTML
+                            --format JSON
+                            --format XML
+                            --failOnCVSS 7
+                        ''', odcInstallation: 'DC', nvdCredentialsId: 'nvdApiKey-of-Owasp-Dependency-Check'
+                    }
+                    post {
+                        always {
+                            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                        }
+                    }
+                }
                 
                 stage('Code Quality') {
                     stages {
@@ -138,17 +139,17 @@ pipeline {
             }
         }
         
-        // stage('Push to DockerHub') {
-        //     steps {
-        //         echo 'Pushing image to DockerHub...'
-        //         script {
-        //             docker.withRegistry('https://registry.hub.docker.com', "${DOCKER_CREDENTIALS_ID}") {
-        //                 dockerImage.push("${BUILD_NUMBER}")
-        //                 dockerImage.push("latest")
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Push to DockerHub') {
+            steps {
+                echo 'Pushing image to DockerHub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh '''
+                        // echo $PASSWORD | docker login -u $USERNAME --password-stdin
+                        docker push zohaibwarraich/retail-store-cart-service:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
     }
     
     post {
@@ -161,9 +162,11 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
+            slackSend channel: '#retail-store-sample-aws', message: 'Build Success: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
         }
         failure {
             echo 'Pipeline failed!'
+            slackSend channel: '#retail-store-sample-aws', message: 'Build Failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}. \nYou can find the Code quality report, Dependency Check report, Trivy report here: ${env.BUILD_URL}', teamDomain: 'DevOps Workspace', tokenCredentialId: 'slack-token-Jenkins'
         }
     }
 }
