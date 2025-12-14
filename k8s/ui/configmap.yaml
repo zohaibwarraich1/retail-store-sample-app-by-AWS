@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ui-configmap
+  namespace: retail-store-ns
+data:
+  SERVER_PORT: "8080"
+  SPRING_PROFILES_ACTIVE: "prod"
+  RETAIL_UI_ENDPOINTS_CATALOG: "http://catalog-svc:8080"
+  RETAIL_UI_ENDPOINTS_CHECKOUT: "http://checkout-svc:8080"
+  RETAIL_UI_ENDPOINTS_ORDERS: "http://orders-svc:8080"
+  RETAIL_UI_ENDPOINTS_CARTS: "http://cart-svc:8080"

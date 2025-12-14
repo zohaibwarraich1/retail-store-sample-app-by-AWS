@@ -1,0 +1,45 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog-hpa
+  namespace: retail-store-ns
+  labels:
+    app: catalog
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog-deployment
+
+  minReplicas: 1  
+  maxReplicas: 3  
+
+  metrics:
+  # If average > 50%, add pods. If < 50%, remove pods.
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0 # (default) immediate scale up
+      policies:
+      # Add 100% more pods at most every 15s (Double the count)
+      - type: Percent
+        value: 50
+        periodSeconds: 15
+      selectPolicy: Max # Choose the policy that adds MORE pods
+
+    scaleDown:
+      # Wait 200s (3 min) after load drops before removing pods
+      # This prevents rapidly adding/removing pods
+      stabilizationWindowSeconds: 200
+      policies:
+      # Remove at most 50% of currently running pods every 60s
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      selectPolicy: Min

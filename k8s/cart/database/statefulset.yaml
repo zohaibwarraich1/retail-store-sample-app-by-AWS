@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cart-db
+  namespace: retail-store-ns
+  labels:
+    app: cart-db
+spec:
+  serviceName: "cart-db-svc"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-db
+  template:
+    metadata:
+      labels:
+        app: cart-db
+    spec:
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: dynamodb
+        image: amazon/dynamodb-local
+        imagePullPolicy: IfNotPresent
+        # Command to enable persistence configuration
+        command: ["java", "-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+        ports:
+        - containerPort: 8000
+          name: dynamodb
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: dynamodb-data
+          mountPath: /home/dynamodblocal/data
+        # DynamoDB local might need writable temp space if not fully configured for readonly, 
+        # but usually data path is enough. Adding tmp just in case.
+        - name: tmp-volume
+          mountPath: /tmp
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: dynamodb-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "ebs-sc"
+      resources:
+        requests:
+          storage: 1Gi

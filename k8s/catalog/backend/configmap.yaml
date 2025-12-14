@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog-configmap
+  namespace: retail-store-ns
+data:
+  PORT: "8080"
+  RETAIL_CATALOG_PERSISTENCE_PROVIDER: "mysql"
+  RETAIL_CATALOG_PERSISTENCE_ENDPOINT: "catalog-db-svc:3306"
+  RETAIL_CATALOG_PERSISTENCE_DB_NAME: "retail-store-db"
+  RETAIL_CATALOG_PERSISTENCE_USER: "admin"
+  RETAIL_CATALOG_PERSISTENCE_CONNECT_TIMEOUT: "5"

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: orders-mq
+  namespace: retail-store-ns
+  labels:
+    app: orders-mq
+spec:
+  serviceName: "orders-mq-svc"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-mq
+  template:
+    metadata:
+      labels:
+        app: orders-mq
+    spec:
+      # No Pod-level security context for user so initContainer can be root in order to fix permissions 
+      initContainers:
+      # this container is used to fix permissions for rabbitmq data dir because 
+      # rabbitmq container runs as user 999 and group 999 and it needs to have 
+      # write permissions to the data dir 
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chown -R 999:999 /var/lib/rabbitmq && chmod -R 700 /var/lib/rabbitmq"]
+        securityContext:
+          runAsUser: 0 
+        volumeMounts: 
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.11-management
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 999 
+          runAsGroup: 999 # Add explicit group for clarity
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - secretRef:
+            name: orders-messaging-secret
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        # RabbitMQ needs writable /tmp and /var/log/rabbitmq sometimes for generated configs if read-only
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: log-volume
+          mountPath: /var/log/rabbitmq
+        startupProbe:
+          tcpSocket:
+            port: 5672
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 5672
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          tcpSocket:
+            port: 5672
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: log-volume
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "ebs-sc"
+      resources:
+        requests:
+          storage: 1Gi
