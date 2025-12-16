@@ -35,7 +35,7 @@ spec:
   # This template is instantiated for every item found by the generators.
   template:
     metadata:
-      name: '{{.service}}'
+      name: 'retail-store-{{.service}}'
     spec:
       project: retail-store
       source:
@@ -55,13 +55,13 @@ spec:
           prune: true       
           # Revert manual kubectl edits
           selfHeal: true    
-      syncOptions:
+        syncOptions:
         - CreateNamespace=true
         - Validate=true  
-      # If network issues or K8s API is busy, retry the sync automatically
-      retry:
-        limit: 5
-        backoff:
-          duration: 5s
-          factor: 2
-          maxDuration: 3m
+        # If network issueks or K8s API is busy, retry the sync automatically
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
