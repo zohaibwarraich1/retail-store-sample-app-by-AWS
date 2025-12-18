@@ -19,7 +19,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: cart
-        image: zohaibwarraich/retail-store-cart-service:v1.0.0
+        image: zohaibwarraich/retail-store-cart-service:v9-acd1138
         ports:
         - containerPort: 8080
         securityContext:
