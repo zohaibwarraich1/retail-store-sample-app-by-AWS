@@ -19,7 +19,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: ui
-        image: zohaibwarraich/retail-store-ui-service:v1.0.0
+        image: zohaibwarraich/retail-store-ui-service:v10-bcda634
         ports:
         - containerPort: 8080
         securityContext:
