@@ -28,6 +28,10 @@ pipeline {
                         echo 'Checking out source code...'
                         slackSend channel: "retail-store-sample-aws", message: "Build Started: ${env.JOB_NAME} \nBuild Number: ${env.BUILD_NUMBER}"
                         checkout scm
+                        script {
+                            def shortCommit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                            env.IMAGE_TAG = "v${env.BUILD_NUMBER}-${shortCommit}"
+                        }
                     }
                 }
                 
@@ -110,7 +114,7 @@ pipeline {
                     steps {
                         echo 'Building Docker image...'
                         sh """
-                            docker build -f src/orders/Dockerfile -t zohaibwarraich/retail-store-orders-service:${BUILD_NUMBER} .
+                            docker build -f src/orders/Dockerfile -t zohaibwarraich/retail-store-orders-service:${IMAGE_TAG} .
                         """
                     }
                 }
@@ -126,7 +130,7 @@ pipeline {
                                 --format template \
                                 --template '@/usr/local/share/trivy/templates/html.tpl' \
                                 --output trivy-report.html \
-                                zohaibwarraich/retail-store-orders-service:${BUILD_NUMBER}
+                                zohaibwarraich/retail-store-orders-service:${IMAGE_TAG}
                         """
                     }
                     post {
@@ -150,18 +154,35 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                             sh """
                                 echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-                                docker push zohaibwarraich/retail-store-orders-service:${BUILD_NUMBER}
+                                docker push zohaibwarraich/retail-store-orders-service:${IMAGE_TAG}
                             """
                         }
                     }
                 }
+
+
+            stage('Update Manifest') {
+                steps {
+                    echo 'Updating Kubernetes manifest...'
+                    withCredentials([usernamePassword(credentialsId: 'github_creds', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
+                        sh """
+                            git config user.email "jenkins@example.com"
+                            git config user.name "Jenkins"
+                            sed -i 's|image: zohaibwarraich/retail-store-orders-service:.*|image: zohaibwarraich/retail-store-orders-service:${IMAGE_TAG}|g' k8s/orders/deployment.yaml
+                            git add k8s/orders/deployment.yaml 
+                            git commit -m "Update Orders image tag to ${IMAGE_TAG} [skip ci]"
+                            git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/zohaibwarraich1/retail-store-sample-app-by-AWS.git HEAD:main
+                        """
+                    }
+                }
+            }
             }
             
             post {
                 always {
                     echo 'Cleaning up...'
                     sh """
-                        docker rmi zohaibwarraich/retail-store-orders-service:${BUILD_NUMBER} || true
+                        docker rmi zohaibwarraich/retail-store-orders-service:${IMAGE_TAG} || true
                     """
                     cleanWs()
                 }

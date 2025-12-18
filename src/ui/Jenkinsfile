@@ -169,7 +169,7 @@ pipeline {
                                 git config user.name "Jenkins"
                                 sed -i 's|image: zohaibwarraich/retail-store-ui-service:.*|image: zohaibwarraich/retail-store-ui-service:${IMAGE_TAG}|g' k8s/ui/deployment.yaml
                                 git add k8s/ui/deployment.yaml 
-                                git commit -m "Update UI image tag to ${IMAGE_TAG}"
+                                git commit -m "Update UI image tag to ${IMAGE_TAG} [skip ci]"
                                 git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/zohaibwarraich1/retail-store-sample-app-by-AWS.git HEAD:main
                             """
                         }
